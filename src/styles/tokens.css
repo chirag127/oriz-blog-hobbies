@@ -1,0 +1,266 @@
+/*
+ * tokens.css — "The Bench" identity for hobbies-blog.oriz.in (Hobbies & Gear).
+ *
+ * Grounded in the maker's workbench: warm birch-plywood surface, walnut ink,
+ * tool-cabinet enamel green as the PRIMARY (the deliberate risk — hobby blogs
+ * never lead green), oxidized-copper + brass as warm metal secondaries.
+ * Signature = the stamped spec-tab (Space Mono label + copper corner notch).
+ *
+ * Deliberately UNLIKE oriz-blog "Signal Press" (amber + Source Serif newspaper)
+ * and unlike the 3 AI defaults (no cream+terracotta, no acid-green-on-black,
+ * no broadsheet hairline columns). Light-first, warm.
+ *
+ * Every --color-* alias kept so chrome/legal/Footer compile unchanged.
+ * Theme modes:
+ *   :root                              → light (birch bench, default)
+ *   [data-theme="dark"]                → shop-at-night (walnut dark)
+ *   @media (prefers-color-scheme:dark) → dark, UNLESS [data-theme="light"]
+ *   [data-theme="sepia"]               → kraft-paper warm
+ *   [data-theme="hc"]                  → pure black/white high contrast
+ */
+:root {
+  color-scheme: light;
+
+  /* ── workbench palette (light, default) ──────────────────────────────
+     Birch-plywood surface, walnut ink, tool-cabinet enamel green primary,
+     oxidized-copper warm accent, brass secondary highlight. */
+  --pine: #2f5b3f;          /* tool-cabinet enamel green — PRIMARY */
+  --pine-soft: #dfe8de;     /* pale green wash — chips, hover on light */
+  --copper: #a4471a;        /* oiled/oxidized copper — links, flags (AA on birch) */
+  --copper-soft: #f2e0d2;   /* copper wash */
+  --brass: #a9791d;         /* brass fitting — secondary highlight */
+
+  --brand: var(--pine);     /* PRIMARY routes through pine */
+  --brand-soft: var(--pine-soft);
+  --success: #2f5b3f;
+  --danger-color: #b23b2b;
+
+  --bench: #ece4d3;         /* birch-plywood surface (page bg) — sawdust-warm, NOT cream */
+  --bench-2: #f7f1e5;       /* raised panel / spec card */
+  --panel: var(--bench-2);
+  --surface: var(--bench-2);
+  --ink: #24211b;           /* walnut near-black text */
+  --ink-mute: #6c6455;      /* aged-oak secondary */
+  --rule: #d3c8b2;          /* sawn-edge hairline */
+  --rule-strong: #b9ac91;   /* heavier bench-edge rule */
+
+  /* canonical accent — pine. Warm metal = copper. Back-compat aliases below. */
+  --accent: var(--pine);
+  --accent-soft: var(--pine-soft);
+  --accent-warm: var(--copper);
+  --cobalt: var(--copper);       /* back-compat alias (some chrome reads --cobalt) */
+  --brand-tint: var(--pine-soft);
+  --sage: var(--pine);
+  --vermilion: var(--copper);
+  --highlighter: var(--brass);
+
+  /* content-desk marker colours — Gear / Craft / Field / Care.
+     Each vertical reads as a workshop discipline; used only for tab squares
+     and kicker ticks, never the page accent. */
+  --v-dev: #2f5b3f;      /* Gear — enamel green */
+  --v-finance: #a4471a;  /* Craft/build — copper */
+  --v-culture: #7a5cb0;  /* Field/culture — violet dye */
+  --v-health: #2b7c86;   /* Care/upkeep — patina teal */
+  --v-personal: #6c6455;
+
+  /* semantic passthroughs */
+  --color-bg: var(--bench);
+  --color-fg: var(--ink);
+  --color-accent: var(--pine);
+  --color-accent-fg: #f7f1e5;
+  --color-sage: var(--pine);
+  --color-muted: var(--ink-mute);
+  --color-border: var(--rule);
+  --color-bg-soft: var(--bench-2);
+  --color-bg-muted: var(--bench-2);
+  --color-prose: var(--ink);
+  --color-fg-muted: var(--ink-mute);
+  --color-fg-soft: var(--ink-mute);
+
+  /* color alias layer (chrome components read these) */
+  --color-brand-indigo: var(--pine);
+  --color-brand-indigo-soft: var(--pine-soft);
+  --color-brand-success: var(--pine);
+  --color-brand-danger: var(--danger-color);
+  --color-neutral-0: #ece4d3;
+  --color-neutral-50: #f7f1e5;
+  --color-neutral-100: #efe7d6;
+  --color-neutral-200: #d3c8b2;
+  --color-neutral-300: #b9ac91;
+  --color-neutral-500: #6c6455;
+  --color-neutral-700: #453f34;
+  --color-neutral-900: #24211b;
+  --color-neutral-1000: #000000;
+  --color-paper: var(--bench);
+  --color-paper-2: var(--bench-2);
+  --color-ink: var(--ink);
+  --color-ink-mute: var(--ink-mute);
+  --color-rule: var(--rule);
+  /* legacy names some components still reference */
+  --paper: var(--bench);
+  --paper-2: var(--bench-2);
+
+  /* ── type ───────────────────────────────────────────────────────────
+     Families declared ONCE in global.css @theme. Sizes/spacing here. */
+
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;
+
+  /* spacing — 8 steps */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* motion — restrained (workshop = quiet) */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 360ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* breakpoints */
+  --bp-sm: 480px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1440px;
+
+  /* radii + containers — small radius (machined, not pill-soft) */
+  --radius-card: 4px;
+  --radius-button: 3px;
+  --container-page: 1100px;
+}
+
+/* ── DARK — shop-at-night, system preference unless user forced light ─── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --pine: #6bbd8a;         /* enamel green brightened for dark */
+    --pine-soft: #17241c;
+    --copper: #e08a54;       /* copper on dark */
+    --copper-soft: #2a1c13;
+    --brass: #d5a63c;
+    --brand: var(--pine);
+    --brand-soft: var(--pine-soft);
+    --accent-warm: var(--copper);
+    --cobalt: var(--copper);
+    --bench: #17150f;        /* dark walnut bench */
+    --bench-2: #201d15;      /* raised panel */
+    --ink: #efe7d6;
+    --ink-mute: #a89e88;
+    --rule: #322d22;
+    --rule-strong: #453f30;
+    --v-dev: #6bbd8a;
+    --v-finance: #e08a54;
+    --v-culture: #b39ae0;
+    --v-health: #57c0cc;
+    --v-personal: #a89e88;
+    --color-accent-fg: #17150f;
+    --color-neutral-50: #201d15;
+    --color-neutral-100: #29251b;
+    --color-neutral-200: #322d22;
+    --color-neutral-500: #a89e88;
+    --color-neutral-700: #cdc4ad;
+    --color-neutral-900: #efe7d6;
+  }
+}
+
+/* ── DARK — explicit user override ───────────────────────────────────── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --pine: #6bbd8a;
+  --pine-soft: #17241c;
+  --copper: #e08a54;
+  --copper-soft: #2a1c13;
+  --brass: #d5a63c;
+  --brand: var(--pine);
+  --brand-soft: var(--pine-soft);
+  --accent-warm: var(--copper);
+  --cobalt: var(--copper);
+  --bench: #17150f;
+  --bench-2: #201d15;
+  --ink: #efe7d6;
+  --ink-mute: #a89e88;
+  --rule: #322d22;
+  --rule-strong: #453f30;
+  --v-dev: #6bbd8a;
+  --v-finance: #e08a54;
+  --v-culture: #b39ae0;
+  --v-health: #57c0cc;
+  --v-personal: #a89e88;
+  --color-accent-fg: #17150f;
+  --color-neutral-50: #201d15;
+  --color-neutral-100: #29251b;
+  --color-neutral-200: #322d22;
+  --color-neutral-500: #a89e88;
+  --color-neutral-700: #cdc4ad;
+  --color-neutral-900: #efe7d6;
+}
+
+/* ── SEPIA — kraft-paper warm ────────────────────────────────────────── */
+:root[data-theme='sepia'] {
+  color-scheme: light;
+  --pine: #35583f;
+  --pine-soft: #e3ddc8;
+  --copper: #9a4218;
+  --copper-soft: #efdcc7;
+  --brass: #97701c;
+  --brand: var(--pine);
+  --brand-soft: var(--pine-soft);
+  --accent-warm: var(--copper);
+  --cobalt: var(--copper);
+  --bench: #e8ddc4;
+  --bench-2: #f1e8d2;
+  --ink: #322b20;
+  --ink-mute: #766a54;
+  --rule: #d3c6a8;
+  --rule-strong: #bcac88;
+  --color-accent-fg: #f1e8d2;
+  --color-fg-soft: color-mix(in oklab, var(--ink) 55%, var(--bench));
+  --color-neutral-50: #f1e8d2;
+  --color-neutral-100: #e8ddc4;
+  --color-neutral-200: #d3c6a8;
+  --color-neutral-500: #766a54;
+  --color-neutral-700: #524a38;
+  --color-neutral-900: #322b20;
+}
+
+/* ── HIGH-CONTRAST — pure black/white, hard borders ─────────────────── */
+:root[data-theme='hc'] {
+  color-scheme: light;
+  --pine: #14401f;
+  --pine-soft: #dff0e4;
+  --copper: #8a3712;
+  --copper-soft: #ffe6d6;
+  --brass: #6d4e00;
+  --brand: var(--pine);
+  --brand-soft: var(--pine-soft);
+  --accent-warm: var(--copper);
+  --cobalt: var(--copper);
+  --bench: #ffffff;
+  --bench-2: #ffffff;
+  --ink: #000000;
+  --ink-mute: #262620;
+  --rule: #000000;
+  --rule-strong: #000000;
+  --color-accent-fg: #ffffff;
+  --color-fg-soft: #262620;
+  --color-neutral-50: #ffffff;
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #000000;
+  --color-neutral-500: #262620;
+  --color-neutral-700: #000000;
+  --color-neutral-900: #000000;
+}
