@@ -1,21 +1,28 @@
 ---
 import SeriesSpine from '~/components/SeriesSpine.astro'
 /**
- * /  — oriz-blog homepage ("Signal Press" front page).
+ * /  — The Bench homepage. WORKBENCH SHELF archetype.
  *
- * Above the fold: a real newspaper masthead — mono dateline (Vol. N · date ·
- * dispatch count), a big Source Serif 4 nameplate, the active-series spine
- * (`●─●─○─○`), and a colour-flagged LEAD STORY. Below: three hairline strata:
- *   1. IN PROGRESS — series spines
- *   2. RECENT      — last 7 posts, each with its vertical desk kicker
- *   3. BY CATEGORY — one typographic row, each desk in its vertical colour
+ * Not a card grid, not a magazine front page. The page is a wall of
+ * horizontal SHELVES: each content category is a rack rail with a stamped
+ * end-plate label on the left, and its posts hung along the rail as tactile
+ * tool-tags you scan left-to-right. Shelves stack vertically like a
+ * pegboard/cabinet — you read the wall, then reach for the tool.
  *
- * No cover images, no cards, no radius. Verticals (Dev/Finance/Culture/
- * Health/Personal) each carry their own marker colour (--v-*).
+ *   ┌ GEAR ─────────────────────────────────────────────────────────┐
+ *   ┃ [ tool-tag ] [ tool-tag ] [ tool-tag ] [ tool-tag ] →          │
+ *   └────────────────────────────────────────────────────────────────┘
+ *   ┌ CRAFT ────────────────────────────────────────────────────────┐
+ *   ┃ [ tool-tag ] [ tool-tag ] →                                     │
+ *   └────────────────────────────────────────────────────────────────┘
+ *
+ * Hero = thesis (kept). "On the bench" = active series spine.
+ * Verticals (Gear/Craft/Field/Care/Bench) each carry their marker colour.
  */
 import BaseLayout from '~/layouts/BaseLayout.astro'
 import {
   getCategoriesWithCounts,
+  getPostsByCategory,
   getPostsInSeries,
   getPublishedPosts,
   getSeriesWithCounts,
@@ -29,545 +36,282 @@ import { SITE_CONFIG } from '~/lib/config'
 
 const allPosts = await getPublishedPosts()
 const lead = allPosts[0]
-const recentPosts = allPosts.slice(1, 8)
 
+// Active series → "on the bench" spine in the hero.
 const seriesAll = await getSeriesWithCounts()
-// In-progress: series where at least one post exists. We model "published"
-// as the count of currently-published parts. Total is exposed as a heuristic
-// (count + a small tail of "drafting" dots) — for v1 of the v2 design, we
-// just use count for total and count for published, and animate the last
-// dot as `current` so the spine has the signature glyph (`⦿`) visible.
-type InProgress = {
-  name: string
-  slug: string
-  total: number
-  published: number
-  current: number
-  latest: Date
-  parts: Awaited<ReturnType<typeof getPostsInSeries>>
-}
-const inProgress: InProgress[] = []
-for (const { series, count } of seriesAll.slice(0, 4)) {
+let benchSeries:
+  | { name: string; slug: string; total: number; published: number; current: number }
+  | null = null
+if (seriesAll[0]) {
+  const { series, count } = seriesAll[0]
   const parts = await getPostsInSeries(series)
-  const latest = parts.reduce(
-    (max, p) => (p.data.pubDate > max ? p.data.pubDate : max),
-    parts[0].data.pubDate,
-  )
-  // Total must never be less than what's already published (otherwise the
-  // label reads "part 29 of 12"). Use the larger of: published count, the
-  // largest explicit `part` field, or published+1 to hint one more coming.
   const explicitMax = parts.reduce((mx, p) => {
     const v = typeof p.data.part === 'number' ? p.data.part : Number(p.data.part)
     return Number.isFinite(v) ? Math.max(mx, v) : mx
   }, 0)
   const total = Math.max(count, explicitMax, count + 1)
-  inProgress.push({
-    name: series,
-    slug: slugifyTag(series),
-    total,
-    published: count,
-    current: count, // last filled dot is "current"
-    latest,
-    parts,
-  })
+  benchSeries = { name: series, slug: slugifyTag(series), total, published: count, current: count }
 }
-inProgress.sort((a, b) => b.latest.valueOf() - a.latest.valueOf())
 
+// One SHELF per category, most-stocked first. Each shelf carries up to 8
+// posts as tool-tags; overflow drops to the shelf's "browse" end-cap.
 const cats = await getCategoriesWithCounts()
+type Shelf = {
+  category: string
+  slug: string
+  vertical: ReturnType<typeof verticalFor>
+  count: number
+  posts: Awaited<ReturnType<typeof getPostsByCategory>>
+}
+const shelves: Shelf[] = []
+for (const { category, count } of cats) {
+  const posts = (await getPostsByCategory(category)).slice(0, 8)
+  if (posts.length === 0) continue
+  shelves.push({ category, slug: slugifyTag(category), vertical: verticalFor(category), count, posts })
+}
 
 const leadVertical = lead ? postVertical(lead) : 'personal'
 const leadRt = lead ? (lead.data.readingTime ?? readingTimeFor(lead)) : ''
 
-// "Days since" helper for the in-progress rail.
-function ago(date: Date): string {
-  const days = Math.floor((Date.now() - date.valueOf()) / 86_400_000)
-  if (days < 1) return 'today'
-  if (days === 1) return '1d ago'
-  if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  if (months === 1) return '1mo ago'
-  if (months < 12) return `${months}mo ago`
-  const years = Math.floor(days / 365)
-  return years === 1 ? '1y ago' : `${years}y ago`
-}
-
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Blog',
-  name: SITE_CONFIG.title,
-  url: `${SITE_CONFIG.url}/`,
+  name: SITE_CONFIG.name,
+  url: `${SITE_CONFIG.origin}/`,
   description: SITE_CONFIG.description,
-  author: { '@type': 'Person', name: SITE_CONFIG.author.name, url: SITE_CONFIG.author.url },
+  author: { '@type': 'Person', name: 'Chirag Singhal', url: 'https://me.oriz.in' },
 }
 ---
 
-<BaseLayout
-  title="oriz / blog"
-  description={SITE_CONFIG.description}
-  jsonLd={jsonLd}
-  hideSidebar
->
-  <div class="container-page">
-    {/* Hero — thesis, field-guide style. No big number, no cover photo. */}
+<BaseLayout title="The Bench — Hobbies & Gear" description={SITE_CONFIG.description} jsonLd={jsonLd} hideSidebar>
+  <div class="bench-wall">
+    {/* Hero — thesis, stamped. */}
     <section class="hero" aria-label="Introduction">
       <p class="hero-stamp">
         <span class="spec-tab">Field guide</span>
-        <span class="hero-est mono">Est. 2019 · {allPosts.length} entries</span>
+        <span class="hero-est mono">Est. 2019 · {allPosts.length} entries on the rack</span>
       </p>
       <h1 class="hero-thesis">Gear you'll keep. Hobbies worth the bench space.</h1>
       <p class="hero-lede">Honest starter guides and gear notes — film photography, mechanical keyboards, woodworking, and the rest. What to buy first, what to skip, and why.</p>
       <hr class="hero-baseline" />
-      {inProgress[0] && (
+      {benchSeries && (
         <p class="hero-bench">
           <span class="spec-tab spec-tab--ghost">On the bench</span>
-          <a class="hero-bench-name" href={`/series/${inProgress[0].slug}/`}>{inProgress[0].name}</a>
-          <SeriesSpine
-            total={inProgress[0].total}
-            published={inProgress[0].published}
-            current={inProgress[0].current}
-            size="md"
-          />
+          <a class="hero-bench-name" href={`/series/${benchSeries.slug}/`}>{benchSeries.name}</a>
+          <SeriesSpine total={benchSeries.total} published={benchSeries.published} current={benchSeries.current} size="md" />
         </p>
       )}
     </section>
 
     {lead && (
-      <>
-        <hr class="rule-heavy" />
-        <section class="lead" data-vertical={leadVertical} aria-labelledby="lead-title">
-          <a class="lead-link" href={`/blog/${lead.id}`}>
-            <span class="lead-kicker mono">
-              <span class="lead-tick" aria-hidden="true"></span>
-              <span class="lead-desk">{verticalLabel(leadVertical)}</span>
-              <span class="lead-flag">Featured</span>
-            </span>
-            <h2 id="lead-title" class="lead-title">{lead.data.title}</h2>
-            <p class="lead-dek">{lead.data.description}</p>
-            <span class="lead-meta mono">
-              <time datetime={lead.data.pubDate.toISOString()}>{lead.data.pubDate.toISOString().slice(0, 10)}</time>
-              <span aria-hidden="true">·</span>
-              <span>{leadRt}</span>
-            </span>
-          </a>
-        </section>
-      </>
+      <section class="pinned" data-vertical={leadVertical} aria-labelledby="pinned-title">
+        <span class="pinned-plate mono">Pinned to the pegboard</span>
+        <a class="pinned-link" href={`/blog/${lead.id}`}>
+          <span class="pinned-kicker mono">
+            <span class="pinned-tick" aria-hidden="true"></span>{verticalLabel(leadVertical)}
+          </span>
+          <h2 id="pinned-title" class="pinned-title">{lead.data.title}</h2>
+          <p class="pinned-dek">{lead.data.description}</p>
+          <span class="pinned-meta mono">
+            <time datetime={lead.data.pubDate.toISOString()}>{lead.data.pubDate.toISOString().slice(0, 10)}</time>
+            <span aria-hidden="true">·</span><span>{leadRt}</span>
+          </span>
+        </a>
+      </section>
     )}
 
-    <hr class="hairline" />
-
-    {/* Stratum 1 — IN PROGRESS. */}
-    {inProgress.length > 0 && (
-      <section class="stratum stratum-progress" aria-labelledby="s-progress">
-        <h2 id="s-progress" class="stratum-h mono">In progress</h2>
-        <ul class="progress-list">
-          {inProgress.map((s) => (
-            <li class="progress-row">
-              <a class="progress-link" href={`/series/${s.slug}/`}>
-                <span class="progress-name">{s.name}</span>
-                <span class="progress-meta mono">part {s.published} of {s.total}</span>
-                <span class="progress-spine-mount">
-                  <SeriesSpine
-                    total={s.total}
-                    published={s.published}
-                    current={s.current}
-                    size="md"
-                  />
-                </span>
-                <span class="progress-ago mono">{ago(s.latest)}</span>
+    {/* The shelves — one horizontal rack rail per category. */}
+    {shelves.map((shelf) => (
+      <section class="shelf" data-vertical={shelf.vertical} aria-labelledby={`shelf-${shelf.slug}`}>
+        <div class="shelf-endplate">
+          <h2 id={`shelf-${shelf.slug}`} class="shelf-label">
+            <a href={`/categories/${shelf.slug}/`}>{shelf.category}</a>
+          </h2>
+          <span class="shelf-count mono">{shelf.count} on rack</span>
+        </div>
+        <ul class="shelf-rail" role="list">
+          {shelf.posts.map((p) => (
+            <li class="tool-tag">
+              <a class="tool-link" href={`/blog/${p.id}`}>
+                <span class="tool-hook" aria-hidden="true"></span>
+                <time class="tool-date mono" datetime={p.data.pubDate.toISOString()}>
+                  {p.data.pubDate.toISOString().slice(0, 10)}
+                </time>
+                <span class="tool-title">{p.data.title}</span>
+                <span class="tool-rt mono">{p.data.readingTime ?? readingTimeFor(p)}</span>
               </a>
             </li>
           ))}
+          <li class="tool-tag tool-tag--more">
+            <a class="tool-more" href={`/categories/${shelf.slug}/`}>Full shelf →</a>
+          </li>
         </ul>
       </section>
-    )}
+    ))}
 
-    <hr class="hairline" />
-
-    {/* Stratum 2 — RECENT. */}
-    <section class="stratum stratum-recent" aria-labelledby="s-recent">
-      <h2 id="s-recent" class="stratum-h mono">Recent</h2>
-      <ul class="recent-list">
-        {recentPosts.map((p) => (
-          <li class="recent-row" data-vertical={postVertical(p)}>
-            <a class="recent-link" href={`/blog/${p.id}`}>
-              <time class="recent-date mono" datetime={p.data.pubDate.toISOString()}>
-                {p.data.pubDate.toISOString().slice(0, 10)}
-              </time>
-              <span class="recent-meat">
-                <span class="recent-kicker mono">
-                  <span class="recent-tick" aria-hidden="true"></span>{verticalLabel(postVertical(p))}
-                </span>
-                <span class="recent-title">{p.data.title}</span>
-                <span class="recent-dek">{p.data.description}</span>
-              </span>
-              <span class="recent-rt mono">{p.data.readingTime ?? readingTimeFor(p)}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-      <p class="all-link">
-        <a href="/archive/">all {allPosts.length} posts in the archive →</a>
-      </p>
-    </section>
-
-    <hr class="hairline" />
-
-    {/* Stratum 3 — BY CATEGORY (single typographic row). */}
-    {cats.length > 0 && (
-      <section class="stratum stratum-cats" aria-labelledby="s-cats">
-        <h2 id="s-cats" class="stratum-h mono">By category</h2>
-        <p class="cats-row">
-          {cats.map((c, i) => (
-            <>
-              {i > 0 && <span class="cats-dot" aria-hidden="true">·</span>}
-              <a href={`/categories/${slugifyTag(c.category)}/`} class="cats-link" data-vertical={verticalFor(c.category)}>
-                <span class="cats-name">{c.category}</span>
-                <span class="cats-count mono">({c.count})</span>
-              </a>
-            </>
-          ))}
-        </p>
-      </section>
-    )}
+    <p class="wall-foot mono">
+      <a href="/archive/">Open the archive — all {allPosts.length} entries →</a>
+    </p>
   </div>
 </BaseLayout>
 
 <style>
-  .container-page {
-    max-width: 920px;
+  .bench-wall {
+    max-width: var(--container-page, 1100px);
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 4vw, 2rem);
+    padding-inline: clamp(1rem, 4vw, 2rem);
+    padding-bottom: 2rem;
   }
 
-  /* ── Hero (thesis, field-guide) ────────────────────────────────────── */
-
-  .hero {
-    padding-block: clamp(2rem, 6vw, 3.75rem) 1.75rem;
-  }
-  .hero-stamp {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 0 0 1.5rem;
-  }
-  .hero-est {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-  }
+  /* ── Hero ──────────────────────────────────────────────────────────── */
+  .hero { padding-block: clamp(2rem, 6vw, 3.75rem) 1.5rem; }
+  .hero-stamp { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0 0 1.5rem; }
+  .hero-est { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
   .hero-thesis {
     font-family: var(--font-display);
     font-optical-sizing: auto;
     font-size: clamp(2.5rem, 7.5vw, 4.75rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 0.98;
-    color: var(--ink);
-    margin: 0;
-    max-width: 16ch;
+    font-weight: 600; letter-spacing: -0.02em; line-height: 0.98;
+    color: var(--ink); margin: 0; max-width: 16ch;
   }
   .hero-lede {
-    font-family: var(--font-body);
-    font-size: clamp(1.0625rem, 2vw, 1.25rem);
-    line-height: 1.5;
-    color: var(--ink-mute);
-    margin: 1.25rem 0 0;
-    max-width: 54ch;
+    font-family: var(--font-body); font-size: clamp(1.0625rem, 2vw, 1.25rem);
+    line-height: 1.5; color: var(--ink-mute); margin: 1.25rem 0 0; max-width: 54ch;
   }
-  .hero-baseline {
-    height: 3px;
-    background: var(--copper);
-    border: 0;
-    margin: 1.5rem 0 0;
-    width: 96px;
-  }
-  .hero-bench {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 1.5rem 0 0;
-  }
+  .hero-baseline { height: 3px; background: var(--copper); border: 0; margin: 1.5rem 0 0; width: 96px; }
+  .hero-bench { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 1.5rem 0 0; }
   .hero-bench-name {
-    font-family: var(--font-display);
-    font-size: 1.0625rem;
-    font-weight: 600;
-    color: var(--ink);
-    text-decoration: none;
-    border-bottom: 1px solid var(--rule-strong);
+    font-family: var(--font-display); font-size: 1.0625rem; font-weight: 600;
+    color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule-strong);
   }
   .hero-bench-name:hover { color: var(--copper); border-bottom-color: var(--copper); }
 
-  .rule-heavy {
-    height: 3px;
-    background: var(--pine);
-    border: 0;
-    margin: 0;
-  }
-
-  /* ── Lead story ────────────────────────────────────────────────────── */
-
-  .lead {
+  /* ── Pinned lead (pegboard) ────────────────────────────────────────── */
+  .pinned {
     --v: var(--v-personal);
-    padding-block: 1.75rem 0.5rem;
-  }
-  .lead[data-vertical='dev'] { --v: var(--v-dev); }
-  .lead[data-vertical='finance'] { --v: var(--v-finance); }
-  .lead[data-vertical='culture'] { --v: var(--v-culture); }
-  .lead[data-vertical='health'] { --v: var(--v-health); }
-  .lead-link { display: grid; gap: 0.625rem; color: var(--ink); text-decoration: none; }
-  .lead-kicker {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute);
-  }
-  .lead-tick { width: 8px; height: 8px; background: var(--v); flex: 0 0 auto; }
-  .lead-desk { color: var(--v); font-weight: 500; }
-  .lead-flag { border-left: 1px solid var(--rule); padding-left: 0.5rem; color: var(--copper); font-weight: 700; }
-  .lead-title {
-    font-family: var(--font-display);
-    font-size: clamp(1.875rem, 4.5vw, 2.75rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.08;
-    margin: 0;
-    max-width: 20ch;
-  }
-  .lead-link:hover .lead-title { color: var(--accent); }
-  .lead-dek {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    line-height: 1.5;
-    color: var(--ink-mute);
-    margin: 0;
-    max-width: 58ch;
-  }
-  .lead-meta { display: inline-flex; gap: 0.5rem; font-size: 11px; letter-spacing: 0.06em; color: var(--ink-mute); }
-
-  /* ── Strata ────────────────────────────────────────────────────────── */
-
-  .stratum { padding-block: 1.75rem 1.75rem; }
-  .stratum-h {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--ink-mute);
-    font-weight: 500;
-    margin: 0 0 1.25rem;
-  }
-
-  /* ── In progress ──────────────────────────────────────────────────── */
-
-  .progress-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-  }
-  .progress-row { padding: 0; }
-  .progress-link {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    gap: 1rem;
-    align-items: baseline;
-    color: var(--ink);
-    text-decoration: none;
-    padding-block: 0.5rem;
-  }
-  .progress-link:hover { color: var(--accent); }
-  .progress-link:hover .progress-meta,
-  .progress-link:hover .progress-ago { color: var(--accent); }
-  .progress-name {
-    font-family: var(--font-display);
-    font-size: 1.0625rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .progress-meta, .progress-ago {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--ink-mute);
-  }
-  .progress-spine-mount { display: inline-flex; }
-
-  @media (max-width: 640px) {
-    .progress-link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'name      ago'
-        'meta      meta'
-        'spine     spine';
-      row-gap: 0.25rem;
-    }
-    .progress-name { grid-area: name; }
-    .progress-meta { grid-area: meta; }
-    .progress-spine-mount { grid-area: spine; }
-    .progress-ago { grid-area: ago; text-align: right; }
-  }
-
-  /* ── Recent ───────────────────────────────────────────────────────── */
-
-  .recent-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .recent-row {
-    --v: var(--v-personal);
-    border-bottom: 1px solid color-mix(in oklab, var(--rule) 70%, transparent);
-  }
-  .recent-row[data-vertical='dev'] { --v: var(--v-dev); }
-  .recent-row[data-vertical='finance'] { --v: var(--v-finance); }
-  .recent-row[data-vertical='culture'] { --v: var(--v-culture); }
-  .recent-row[data-vertical='health'] { --v: var(--v-health); }
-  .recent-row:last-child { border-bottom: 0; }
-  .recent-link {
-    display: grid;
-    grid-template-columns: 100px minmax(0, 1fr) auto;
-    gap: 1.25rem;
-    align-items: baseline;
-    color: var(--ink);
-    text-decoration: none;
-    padding-block: 0.875rem;
-    padding-left: 0.75rem;
-    margin-left: -0.75rem;
-    border-left: 2px solid transparent;
-    transition: border-color var(--dur-fast, 120ms) ease;
-  }
-  .recent-link:hover { border-left-color: var(--v); }
-  .recent-link:hover .recent-title { color: var(--accent); }
-  .recent-link:hover .recent-date,
-  .recent-link:hover .recent-rt { color: var(--accent); }
-
-  .recent-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--v);
-    font-weight: 500;
-  }
-  .recent-tick { width: 6px; height: 6px; background: var(--v); flex: 0 0 auto; }
-
-  .recent-date {
-    color: var(--ink-mute);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.04em;
     position: relative;
-    padding-left: 0.875rem;
+    margin-top: 0.75rem;
+    padding: 1.5rem clamp(1.1rem, 3vw, 2rem);
+    background: var(--bench-2);
+    border: 1px solid var(--rule-strong);
+    border-left: 5px solid var(--v);
+    border-radius: var(--radius-card);
   }
-  /* dateline gutter: coral tick marks the wire-feed timestamp */
-  .recent-date::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.12em;
-    width: 3px;
-    height: 0.7em;
-    background: var(--cobalt);
+  .pinned[data-vertical='dev'] { --v: var(--v-dev); }
+  .pinned[data-vertical='finance'] { --v: var(--v-finance); }
+  .pinned[data-vertical='culture'] { --v: var(--v-culture); }
+  .pinned[data-vertical='health'] { --v: var(--v-health); }
+  .pinned-plate {
+    position: absolute; top: -9px; left: clamp(1.1rem, 3vw, 2rem);
+    background: var(--copper); color: var(--bench-2);
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px;
   }
-  .recent-meat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    min-width: 0;
+  .pinned-link { display: grid; gap: 0.5rem; color: var(--ink); text-decoration: none; margin-top: 0.35rem; }
+  .pinned-kicker {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--v); font-weight: 600;
   }
-  .recent-title {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    line-height: 1.3;
+  .pinned-tick { width: 8px; height: 8px; background: var(--v); flex: 0 0 auto; }
+  .pinned-title {
+    font-family: var(--font-display); font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin: 0; max-width: 22ch;
   }
-  .recent-dek {
-    font-family: var(--font-body);
-    font-size: 14.5px;
-    color: var(--ink-mute);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
+  .pinned-link:hover .pinned-title { color: var(--accent); }
+  .pinned-dek { font-family: var(--font-body); font-size: 1.05rem; line-height: 1.5; color: var(--ink-mute); margin: 0; max-width: 58ch; }
+  .pinned-meta { display: inline-flex; gap: 0.5rem; font-size: 11px; letter-spacing: 0.06em; color: var(--ink-mute); }
+
+  /* ── Shelves — horizontal rack rails ───────────────────────────────── */
+  .shelf {
+    --v: var(--v-personal);
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 3px solid var(--rule-strong);
   }
-  .recent-rt {
-    color: var(--ink-mute);
+  .shelf[data-vertical='dev'] { --v: var(--v-dev); }
+  .shelf[data-vertical='finance'] { --v: var(--v-finance); }
+  .shelf[data-vertical='culture'] { --v: var(--v-culture); }
+  .shelf[data-vertical='health'] { --v: var(--v-health); }
+
+  .shelf-endplate {
+    display: flex; align-items: baseline; gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .shelf-label {
+    margin: 0;
     font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
   }
+  .shelf-label a {
+    color: var(--v); text-decoration: none;
+    border-bottom: 2px solid transparent; padding-bottom: 2px;
+  }
+  .shelf-label a:hover { border-bottom-color: var(--v); }
+  .shelf-count { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute); }
+
+  /* the rail: tool-tags in a horizontal scroll track, hung off the rail */
+  .shelf-rail {
+    list-style: none; margin: 0; padding: 0 0 0.5rem;
+    display: flex; gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .tool-tag { scroll-snap-align: start; flex: 0 0 auto; }
+  .tool-link {
+    position: relative;
+    display: grid; align-content: start; gap: 0.4rem;
+    width: 15rem; min-height: 8.5rem;
+    padding: 1.1rem 0.9rem 0.9rem;
+    background: var(--bench-2);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--v);
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    color: var(--ink); text-decoration: none;
+    transition: transform var(--dur-fast) ease, border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  }
+  /* the hook: a drilled hole punched into the tool-tag's top edge */
+  .tool-hook {
+    position: absolute; top: -3px; left: 50%; transform: translateX(-50%);
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--bench); border: 1.5px solid var(--v);
+  }
+  .tool-link:hover {
+    transform: translateY(2px);
+    border-color: var(--v);
+    box-shadow: 0 3px 0 0 color-mix(in oklab, var(--v) 30%, transparent);
+  }
+  .tool-date { font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-mute); }
+  .tool-title {
+    font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
+    line-height: 1.25; letter-spacing: -0.01em; color: var(--ink);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+  }
+  .tool-link:hover .tool-title { color: var(--v); }
+  .tool-rt { font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-mute); margin-top: auto; align-self: end; }
+
+  .tool-tag--more { display: flex; align-items: stretch; }
+  .tool-more {
+    display: flex; align-items: center; justify-content: center;
+    width: 8rem; padding: 1.1rem 0.9rem;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em;
+    color: var(--ink-mute); text-decoration: none;
+    border: 1px dashed var(--rule-strong); border-radius: var(--radius-card);
+  }
+  .tool-more:hover { color: var(--v); border-color: var(--v); }
+
+  .wall-foot { margin: 2.5rem 0 0; font-size: 12px; letter-spacing: 0.06em; }
+  .wall-foot a {
+    color: var(--ink-mute); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule);
+  }
+  .wall-foot a:hover { color: var(--copper); text-decoration-color: var(--copper); }
 
   @media (max-width: 640px) {
-    .recent-link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'date   rt'
-        'meat   meat';
-      row-gap: 0.25rem;
-    }
-    .recent-date { grid-area: date; }
-    .recent-rt { grid-area: rt; text-align: right; }
-    .recent-meat { grid-area: meat; }
+    .tool-link { width: 12.5rem; }
   }
-
-  .all-link {
-    margin: 1.25rem 0 0;
-    font-family: var(--font-sans);
-    font-size: 13.6px;
+  @media (prefers-reduced-motion: reduce) {
+    .tool-link { transition: none; }
+    .tool-link:hover { transform: none; }
   }
-  .all-link a {
-    color: var(--ink-mute);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-color: var(--rule);
-  }
-  .all-link a:hover { color: var(--accent); text-decoration-color: var(--accent); }
-
-  /* ── By category (one row) ────────────────────────────────────────── */
-
-  .cats-row {
-    margin: 0;
-    line-height: 2;
-    color: var(--ink);
-  }
-  .cats-link {
-    --v: var(--v-personal);
-    color: var(--ink);
-    text-decoration: none;
-    margin-inline: 0.125rem;
-  }
-  .cats-link[data-vertical='dev'] { --v: var(--v-dev); }
-  .cats-link[data-vertical='finance'] { --v: var(--v-finance); }
-  .cats-link[data-vertical='culture'] { --v: var(--v-culture); }
-  .cats-link[data-vertical='health'] { --v: var(--v-health); }
-  .cats-link:hover .cats-name { color: var(--v); }
-  .cats-name {
-    font-family: var(--font-display);
-    font-size: 17px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-  }
-  .cats-count {
-    color: var(--ink-mute);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    margin-left: 0.25rem;
-  }
-  .cats-dot { color: var(--rule); margin-inline: 0.625rem; }
 </style>
