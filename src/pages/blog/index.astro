@@ -22,7 +22,7 @@ const jsonLd = {
   '@type': 'Blog',
   name: `Blog — ${SITE_CONFIG.title}`,
   url: new URL('/blog/', SITE_CONFIG.url).toString(),
-  description: 'Writing on software, AI agents, finance tooling, and the tools I build at oriz.in.',
+  description: 'Gear guides, skill breakdowns, and hobby deep-dives — film, keyboards, woodworking, and more.',
   author: {
     '@type': 'Person',
     name: SITE_CONFIG.author.name,
@@ -33,7 +33,7 @@ const jsonLd = {
 
 <BaseLayout
   title="Blog"
-  description="Writing on software, AI agents, finance tooling, and the tools I build."
+  description="Gear guides, skill breakdowns, and hobby deep-dives — film, keyboards, woodworking, and more."
   jsonLd={jsonLd}
 >
   <div class="container-page section">
@@ -41,7 +41,7 @@ const jsonLd = {
       <p class="blog-kicker mono">The desk</p>
       <h1>Blog</h1>
       <p class="blog-lede">
-        Writing on software, AI agents, finance tooling, and the tools I build.
+        Gear guides, skill breakdowns, and hobby deep-dives — film, keyboards, woodworking, and more.
       </p>
     </header>
 
@@ -127,7 +127,7 @@ const jsonLd = {
     margin: 0;
     padding: 0;
   }
-  .post-list > li:last-child :global(.post-card) {
+  .post-list > li:last-child :global(.tool-strip) {
     border-bottom: 1px solid var(--rule);
   }
   .pager {
